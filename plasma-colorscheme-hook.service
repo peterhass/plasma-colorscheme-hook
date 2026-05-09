@@ -1,0 +1,12 @@
+[Unit]
+Description=Plasma Colorscheme Hook - runs custom scripts on KDE day/night switch
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/plasma-colorscheme-hook
+Restart=on-failure
+
+[Install]
+WantedBy=graphical-session.target
