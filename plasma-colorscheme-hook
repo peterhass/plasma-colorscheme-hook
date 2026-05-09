@@ -1,9 +1,43 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eu
 
 LIGHT_DIR="${HOME}/.local/share/light-mode.d"
 DARK_DIR="${HOME}/.local/share/dark-mode.d"
 STATE_FILE="${HOME}/.cache/plasma-colorscheme-hook-state"
+DRY_RUN=false
+
+usage() {
+    cat <<EOF
+Usage: ${0##*/} [OPTION]
+
+Listen to xdg-desktop-portal color-scheme changes and run custom scripts
+in ~/.local/share/light-mode.d/ and ~/.local/share/dark-mode.d/.
+
+Options:
+  -n, --dry-run   Print which scripts would be executed without running them.
+  -h, --help      Show this help message and exit.
+EOF
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -n|--dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Unknown option: $1" >&2
+                usage >&2
+                exit 1
+                ;;
+        esac
+    done
+}
 
 get_initial_mode() {
     local output
@@ -42,18 +76,36 @@ run_scripts() {
     for script in "$dir"/*; do
         [[ -e "$script" ]] || continue
         [[ -f "$script" && -x "$script" ]] || continue
-        echo "Executing: $script" >&2
-        if ! "$script"; then
-            echo "Warning: $script failed with exit code $?" >&2
+
+        if [[ "$DRY_RUN" == true ]]; then
+            echo "[dry-run] Would execute: $script" >&2
+        else
+            echo "Executing: $script" >&2
+            if ! "$script"; then
+                echo "Warning: $script failed with exit code $?" >&2
+            fi
         fi
     done
 }
 
+write_state() {
+    local mode="$1"
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "[dry-run] Would write state: $mode -> $STATE_FILE" >&2
+    else
+        echo "$mode" > "$STATE_FILE"
+    fi
+}
+
 main() {
+    parse_args "$@"
+
     local prev_mode=""
     local current_mode=""
 
-    mkdir -p "$(dirname "$STATE_FILE")"
+    if [[ "$DRY_RUN" != true ]]; then
+        mkdir -p "$(dirname "$STATE_FILE")"
+    fi
 
     if [[ -f "$STATE_FILE" ]]; then
         prev_mode=$(cat "$STATE_FILE")
@@ -62,8 +114,17 @@ main() {
     current_mode=$(get_initial_mode)
     if [[ -n "$current_mode" && "$current_mode" != "$prev_mode" ]]; then
         echo "Initial mode: $current_mode (state updated, scripts not run)" >&2
-        echo "$current_mode" > "$STATE_FILE"
+        write_state "$current_mode"
         prev_mode="$current_mode"
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "[dry-run] Current mode: ${current_mode:-unknown}" >&2
+        echo "[dry-run] Scripts in $LIGHT_DIR (would run on light mode):" >&2
+        run_scripts "$LIGHT_DIR"
+        echo "[dry-run] Scripts in $DARK_DIR (would run on dark mode):" >&2
+        run_scripts "$DARK_DIR"
+        return
     fi
 
     echo "Monitoring color-scheme changes..." >&2
@@ -90,7 +151,7 @@ main() {
         fi
 
         prev_mode="$mode"
-        echo "$mode" > "$STATE_FILE"
+        write_state "$mode"
     done
 
     echo "Monitor exited unexpectedly." >&2

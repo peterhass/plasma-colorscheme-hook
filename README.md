@@ -21,12 +21,3 @@ make enable
 
 - `~/.local/share/light-mode.d/` — scripts to run when switching to light mode
 - `~/.local/share/dark-mode.d/` — scripts to run when switching to dark mode
-
-## Uninstall
-
-```bash
-systemctl --user disable --now plasma-colorscheme-hook.service
-rm $(HOME)/.local/bin/plasma-colorscheme-hook
-rm $(HOME)/.config/systemd/user/plasma-colorscheme-hook.service
-systemctl --user daemon-reload
-```
