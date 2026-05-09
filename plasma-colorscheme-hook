@@ -67,6 +67,7 @@ parse_monitor_line() {
 
 run_scripts() {
     local dir="$1"
+    local mode="$2"
     if [[ ! -d "$dir" ]]; then
         echo "Directory $dir does not exist, skipping." >&2
         return
@@ -78,10 +79,10 @@ run_scripts() {
         [[ -f "$script" && -x "$script" ]] || continue
 
         if [[ "$DRY_RUN" == true ]]; then
-            echo "[dry-run] Would execute: $script" >&2
+            echo "[dry-run] Would execute: $script $mode" >&2
         else
-            echo "Executing: $script" >&2
-            if ! "$script"; then
+            echo "Executing: $script $mode" >&2
+            if ! "$script" "$mode"; then
                 echo "Warning: $script failed with exit code $?" >&2
             fi
         fi
@@ -121,9 +122,9 @@ main() {
     if [[ "$DRY_RUN" == true ]]; then
         echo "[dry-run] Current mode: ${current_mode:-unknown}" >&2
         echo "[dry-run] Scripts in $LIGHT_DIR (would run on light mode):" >&2
-        run_scripts "$LIGHT_DIR"
+        run_scripts "$LIGHT_DIR" light
         echo "[dry-run] Scripts in $DARK_DIR (would run on dark mode):" >&2
-        run_scripts "$DARK_DIR"
+        run_scripts "$DARK_DIR" dark
         return
     fi
 
@@ -145,9 +146,9 @@ main() {
         fi
 
         if [[ "$mode" == "dark" ]]; then
-            run_scripts "$DARK_DIR"
+            run_scripts "$DARK_DIR" dark
         else
-            run_scripts "$LIGHT_DIR"
+            run_scripts "$LIGHT_DIR" light
         fi
 
         prev_mode="$mode"
